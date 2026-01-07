@@ -26,10 +26,33 @@ type Lead = {
   createdAt: string;
 };
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const ALLOWED_ORIGINS = new Set([
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:8080',
+  'http://localhost:8083',
+  'http://localhost:8085',
+  'http://localhost:8086',
+  'http://localhost:8087',
+  'http://localhost:8088',
+  'http://localhost:8089',
+  'http://localhost:8090',
+  'https://elevatedaiworks.com',
+  'https://www.elevatedaiworks.com',
+]);
+
+const buildCorsHeaders = (origin: string | null): Record<string, string> => {
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
+    'Access-Control-Allow-Credentials': 'true',
+  };
+
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  }
+
+  return headers;
 };
 
 const PRICING_TRUTH_MAP: Record<LeadService, string> = {
@@ -188,8 +211,11 @@ const extractLeadFromMessages = (messages: AssistantMessage[]): Lead | null => {
 };
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = buildCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { status: 200, headers: corsHeaders });
   }
 
   if (req.method !== 'POST') {
