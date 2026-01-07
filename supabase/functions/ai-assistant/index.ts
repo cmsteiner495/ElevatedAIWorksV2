@@ -137,11 +137,19 @@ const hasQuoteIntent = (text: string): boolean => {
   return QUOTE_INTENT_KEYWORDS.some((keyword) => lower.includes(keyword));
 };
 
+const extractDetails = (text: string): string | undefined => {
+  return (
+    extractLabeledValue(text, 'details') ??
+    extractLabeledValue(text, 'message') ??
+    extractLabeledValue(text, 'notes')
+  );
+};
+
 const extractLeadFromMessages = (messages: AssistantMessage[]): Lead | null => {
   const userMessages = messages.filter((message) => message.role === 'user');
   const combined = userMessages.map((message) => message.content).join(' ');
   const emailMatch = combined.match(EMAIL_REGEX);
-  if (!emailMatch || !hasQuoteIntent(combined)) {
+  if (!emailMatch) {
     return null;
   }
 
@@ -157,7 +165,14 @@ const extractLeadFromMessages = (messages: AssistantMessage[]): Lead | null => {
     service = detectService(text) ?? service;
     budget = extractBudget(text) ?? budget;
     timeline = extractTimeline(text) ?? timeline;
-    notes = extractLabeledValue(text, 'notes') ?? notes;
+    notes = extractDetails(text) ?? notes;
+  }
+
+  const hasLeadSignals =
+    Boolean(name || service || budget || timeline || notes) || hasQuoteIntent(combined);
+
+  if (!hasLeadSignals) {
+    return null;
   }
 
   return {
@@ -192,6 +207,7 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const messages = Array.isArray(body?.messages) ? (body.messages as AssistantMessage[]) : [];
+    const pageUrl = typeof body?.pageUrl === 'string' ? body.pageUrl : undefined;
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -216,8 +232,65 @@ serve(async (req) => {
     const data = await response.json();
     const text = data?.choices?.[0]?.message?.content?.trim() ?? '';
     const lead = extractLeadFromMessages(messages);
+    const formspreeEndpoint = Deno.env.get('FORMSPREE_ENDPOINT');
+    const isDev =
+      Deno.env.get('SUPABASE_ENV') === 'local' || Deno.env.get('DENO_ENV') === 'development';
+    let leadSent: boolean | undefined;
+    let leadError: string | undefined;
 
-    return Response.json({ ok: true, text, lead }, { headers: corsHeaders });
+    if (lead) {
+      if (isDev) {
+        console.log('ai-assistant lead detected', { email: lead.email, service: lead.service });
+      }
+
+      if (!formspreeEndpoint) {
+        leadSent = false;
+        leadError = 'Missing Formspree endpoint.';
+      } else {
+        try {
+          const combinedUserText = messages
+            .filter((message) => message.role === 'user')
+            .map((message) => message.content)
+            .join(' ')
+            .trim();
+          const payload = {
+            name: lead.name,
+            email: lead.email,
+            service_interest: lead.service ?? 'General',
+            budget: lead.budget,
+            timeline: lead.timeline,
+            message: lead.notes ?? combinedUserText,
+            source: lead.source,
+            page_url: pageUrl,
+          };
+          const leadResponse = await fetch(formspreeEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!leadResponse.ok) {
+            const errorText = await leadResponse.text();
+            leadSent = false;
+            leadError = errorText ? errorText.slice(0, 120) : 'Formspree rejected the submission.';
+          } else {
+            leadSent = true;
+          }
+        } catch (error) {
+          leadSent = false;
+          leadError = error instanceof Error ? error.message : 'Formspree request failed.';
+        }
+      }
+
+      if (isDev) {
+        console.log('ai-assistant lead submission result', { leadSent, leadError });
+      }
+    }
+
+    return Response.json(
+      { ok: true, text, leadSent, leadError },
+      { headers: corsHeaders },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error.';
     return Response.json({ ok: false, error: message }, { status: 500, headers: corsHeaders });

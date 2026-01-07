@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { sendAssistantMessage, type Lead } from '@/lib/aiAssistant';
+import { sendAssistantMessage } from '@/lib/aiAssistant';
 import { isSupabaseConfigured } from '@/lib/supabaseClient';
 
 interface Message {
@@ -15,8 +15,6 @@ interface AssistantMessage {
 }
 
 const STORAGE_KEY = 'eaw_assistant_history';
-const LEAD_SUBMITTED_KEY_PREFIX = 'leadSent';
-const PENDING_LEAD_KEY = 'eaw_chat_lead_pending';
 const DEFAULT_ASSISTANT_MESSAGE: AssistantMessage = {
   role: 'assistant',
   content: "Hi! I'm the Elevated AI Works Assistant. How can I help you today?",
@@ -25,95 +23,6 @@ const SYSTEM_MESSAGE: AssistantMessage = {
   role: 'system',
   content:
     'You are the Elevated AI Works assistant. Keep responses concise, friendly, and helpful. Never invent prices. You may only mention these ranges exactly: Branding $25–$150 (one-time), Websites $150–$2,000 (one-time), Systems & Docs $50–$500 (one-time), AI Tools $300–$1,000 (one-time), Analytics $50–$500 (one-time), SEO $25–$100/month, Maintenance $25–$200/month. If scope is unclear, provide the correct range and say "final quote after a quick consult." Encourage booking a consultation and ask clarifying questions to move projects forward.',
-};
-
-const formspreeEndpoint = import.meta.env.VITE_FORMSPREE_ENDPOINT;
-
-const getLeadKey = (lead: Lead) => {
-  const service = lead.service ?? 'unspecified';
-  const date = lead.createdAt?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
-  return `${LEAD_SUBMITTED_KEY_PREFIX}:${lead.email}:${service}:${date}`;
-};
-
-const trimSnippet = (snippet: string) => snippet.replace(/\s+/g, ' ').trim().slice(0, 500);
-
-const buildConversationSnippet = (history: AssistantMessage[], assistantText: string) => {
-  const combined = [...history, { role: 'assistant' as const, content: assistantText }];
-  const lastTurns = combined.slice(-3);
-  const snippet = lastTurns
-    .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`)
-    .join('\n');
-  return trimSnippet(snippet);
-};
-
-const storePendingLead = (lead: Lead, snippet: string, key: string) => {
-  sessionStorage.setItem(
-    PENDING_LEAD_KEY,
-    JSON.stringify({
-      lead,
-      snippet,
-      key,
-    }),
-  );
-};
-
-const clearPendingLead = () => {
-  sessionStorage.removeItem(PENDING_LEAD_KEY);
-};
-
-const submitLeadToFormspree = async (
-  lead: Lead,
-  snippet: string,
-  { force }: { force: boolean },
-) => {
-  if (typeof window === 'undefined') {
-    return 'failed';
-  }
-
-  if (!formspreeEndpoint) {
-    return 'failed';
-  }
-
-  const leadKey = getLeadKey(lead);
-  if (!force && sessionStorage.getItem(leadKey)) {
-    return 'skipped';
-  }
-
-  try {
-    if (import.meta.env.DEV) {
-      console.debug('Submitting lead to Formspree', lead);
-    }
-    const response = await fetch(formspreeEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        _subject: 'New AI Assistant Lead — Elevated AI Works',
-        _replyto: lead.email,
-        name: lead.name,
-        email: lead.email,
-        service: lead.service,
-        budget: lead.budget,
-        timeline: lead.timeline,
-        notes: lead.notes,
-        pageUrl: lead.pageUrl,
-        createdAt: lead.createdAt,
-        source: lead.source,
-        conversationSnippet: snippet,
-      }),
-    });
-
-    if (!response.ok) {
-      storePendingLead(lead, snippet, leadKey);
-      return 'failed';
-    }
-
-    sessionStorage.setItem(leadKey, '1');
-    clearPendingLead();
-    return 'success';
-  } catch {
-    storePendingLead(lead, snippet, leadKey);
-    return 'failed';
-  }
 };
 
 const loadHistory = (): AssistantMessage[] => {
@@ -150,8 +59,6 @@ export function ChatWidget() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const assistantUnavailable = !isSupabaseConfigured;
-  const pendingLead =
-    typeof window !== 'undefined' ? sessionStorage.getItem(PENDING_LEAD_KEY) : null;
   const messages: Message[] = history
     .filter((message) => message.role !== 'system')
     .map((message) => ({
@@ -184,7 +91,6 @@ export function ChatWidget() {
     }
 
     const userMessage = input.trim();
-    const forceSend = /send again|retry|resend/i.test(userMessage);
     setInput('');
     setIsLoading(true);
     setErrorMessage(null);
@@ -193,71 +99,37 @@ export function ChatWidget() {
     setHistory(nextHistory);
 
     try {
-      const assistantResponse = await sendAssistantMessage([SYSTEM_MESSAGE, ...nextHistory]);
+      const assistantResponse = await sendAssistantMessage(
+        [SYSTEM_MESSAGE, ...nextHistory],
+        typeof window !== 'undefined' ? window.location.href : undefined,
+      );
       const displayText = assistantResponse.text.trim();
-      const lead = assistantResponse.lead ?? null;
       setHistory((prev) => [...prev, { role: 'assistant', content: displayText }]);
 
-      if (import.meta.env.DEV) {
-        console.debug('ai-assistant lead', lead);
+      if (import.meta.env.DEV && assistantResponse.leadSent !== undefined) {
+        console.debug('ai-assistant lead status', {
+          leadSent: assistantResponse.leadSent,
+          leadError: assistantResponse.leadError,
+        });
       }
 
-      if (lead) {
-        const enrichedLead: Lead = {
-          ...lead,
-          pageUrl: lead.pageUrl ?? window.location.href,
-          createdAt: lead.createdAt ?? new Date().toISOString(),
-        };
-        const snippet = buildConversationSnippet(nextHistory, displayText);
-        const leadResult = await submitLeadToFormspree(enrichedLead, snippet, {
-          force: forceSend,
-        });
-        if (leadResult === 'success') {
-          setHistory((prev) => [
-            ...prev,
-            {
-              role: 'assistant',
-              content: 'Thanks — your details were sent.',
-            },
-          ]);
-        } else if (leadResult === 'failed') {
-          setHistory((prev) => [
-            ...prev,
-            {
-              role: 'assistant',
-              content: 'Couldn’t send your details — please use the Contact form.',
-            },
-          ]);
-        }
-      } else if (pendingLead && forceSend) {
-        try {
-          const stored = JSON.parse(pendingLead) as {
-            lead: Lead;
-            snippet: string;
-          };
-          const leadResult = await submitLeadToFormspree(stored.lead, stored.snippet, {
-            force: true,
-          });
-          if (leadResult === 'success') {
-            setHistory((prev) => [
-              ...prev,
-              {
-                role: 'assistant',
-                content: 'Thanks — your details were sent.',
-              },
-            ]);
-          } else if (leadResult === 'failed') {
-            setHistory((prev) => [
-              ...prev,
-              {
-                role: 'assistant',
-                content: 'Couldn’t send your details — please use the Contact form.',
-              },
-            ]);
-          }
-        } catch {
-          clearPendingLead();
-        }
+      if (assistantResponse.leadSent === true) {
+        setHistory((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content:
+              '✅ Got it — I’ve sent your details to Elevated AI Works. We’ll reach out shortly.',
+          },
+        ]);
+      } else if (assistantResponse.leadSent === false && assistantResponse.leadError) {
+        setHistory((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: 'I couldn’t send your details automatically. Please use the Contact page.',
+          },
+        ]);
       }
     } catch (error) {
       const message =
