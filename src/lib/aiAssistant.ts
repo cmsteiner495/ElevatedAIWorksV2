@@ -5,36 +5,19 @@ type AssistantMessage = {
   content: string;
 };
 
-type LeadService =
-  | 'Branding'
-  | 'Websites'
-  | 'Systems & Docs'
-  | 'AI Tools'
-  | 'SEO'
-  | 'Analytics'
-  | 'Maintenance';
-
-export type Lead = {
-  name?: string;
-  email: string;
-  service?: LeadService;
-  budget?: string;
-  timeline?: string;
-  notes?: string;
-  source: 'ai-assistant';
-  pageUrl?: string;
-  createdAt: string;
-};
-
 export type AssistantResponse = {
   text: string;
-  lead?: Lead | null;
+  leadSent?: boolean;
+  leadError?: string;
 };
 
 const FALLBACK_ERROR = 'Sorry, the assistant is unavailable right now. Please try again soon.';
 const TIMEOUT_ERROR = 'Sorry, the assistant is taking too long. Please try again.';
 
-export async function sendAssistantMessage(messages: AssistantMessage[]): Promise<AssistantResponse> {
+export async function sendAssistantMessage(
+  messages: AssistantMessage[],
+  pageUrl?: string,
+): Promise<AssistantResponse> {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error(FALLBACK_ERROR);
   }
@@ -44,7 +27,7 @@ export async function sendAssistantMessage(messages: AssistantMessage[]): Promis
 
   try {
     const { data, error } = await supabase.functions.invoke('ai-assistant', {
-      body: { messages },
+      body: { messages, pageUrl },
       signal: controller.signal,
     });
 
@@ -67,7 +50,8 @@ export async function sendAssistantMessage(messages: AssistantMessage[]): Promis
         error?: string;
         text?: string;
         message?: string;
-        lead?: Lead | null;
+        leadSent?: boolean;
+        leadError?: string;
       };
 
       if (response.ok === false) {
@@ -75,11 +59,11 @@ export async function sendAssistantMessage(messages: AssistantMessage[]): Promis
       }
 
       if (typeof response.text === 'string') {
-        return { text: response.text, lead: response.lead };
+        return { text: response.text, leadSent: response.leadSent, leadError: response.leadError };
       }
 
       if (typeof response.message === 'string') {
-        return { text: response.message, lead: response.lead };
+        return { text: response.message, leadSent: response.leadSent, leadError: response.leadError };
       }
     }
 
