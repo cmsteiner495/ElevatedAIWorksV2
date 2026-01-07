@@ -1,25 +1,178 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { sendAssistantMessage } from '@/lib/aiAssistant';
+import { isSupabaseConfigured } from '@/lib/supabaseClient';
 
 interface Message {
   text: string;
   isUser: boolean;
 }
 
+interface AssistantMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+const STORAGE_KEY = 'eaw_assistant_history';
+const LEAD_SUBMITTED_KEY = 'eaw_chat_lead_submitted';
+const DEFAULT_ASSISTANT_MESSAGE: AssistantMessage = {
+  role: 'assistant',
+  content: "Hi! I'm the Elevated AI Works Assistant. How can I help you today?",
+};
+const SYSTEM_MESSAGE: AssistantMessage = {
+  role: 'system',
+  content:
+    'You are the Elevated AI Works assistant. Keep responses concise, friendly, and helpful. Never invent prices. You may only mention these ranges exactly: Branding $25–$150 (one-time), Websites $150–$2,000 (one-time), Systems & Docs $50–$500 (one-time), AI Tools $300–$1,000 (one-time), Analytics $50–$500 (one-time), SEO $25–$100/month, Maintenance $25–$200/month. If scope is unclear, provide the correct range and say "final quote after a quick consult." Encourage booking a consultation and ask clarifying questions to move projects forward.',
+};
+
+type LeadCapture = {
+  name: string;
+  email: string;
+  business: string;
+  service_interest: string;
+  estimated_range: string;
+  timeline: string;
+  notes: string;
+};
+
+const LEAD_CAPTURE_MARKER = 'LEAD_CAPTURE:';
+const formspreeEndpoint = import.meta.env.VITE_FORMSPREE_CHAT_LEADS_ENDPOINT;
+
+const extractLeadCapture = (text: string) => {
+  const markerIndex = text.indexOf(LEAD_CAPTURE_MARKER);
+  if (markerIndex === -1) {
+    return { displayText: text.trim(), lead: null as LeadCapture | null };
+  }
+
+  const displayText = text.slice(0, markerIndex).trim();
+  const leadBlock = text.slice(markerIndex + LEAD_CAPTURE_MARKER.length).trim();
+  const lead: Partial<LeadCapture> = {};
+
+  leadBlock
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const [rawKey, ...rest] = line.split('=');
+      if (!rawKey || rest.length === 0) {
+        return;
+      }
+      const key = rawKey.trim();
+      const value = rest.join('=').trim();
+      if (
+        key === 'name' ||
+        key === 'email' ||
+        key === 'business' ||
+        key === 'service_interest' ||
+        key === 'estimated_range' ||
+        key === 'timeline' ||
+        key === 'notes'
+      ) {
+        lead[key] = value;
+      }
+    });
+
+  const normalizedLead: LeadCapture = {
+    name: lead.name ?? '',
+    email: lead.email ?? '',
+    business: lead.business ?? '',
+    service_interest: lead.service_interest ?? '',
+    estimated_range: lead.estimated_range ?? '',
+    timeline: lead.timeline ?? '',
+    notes: lead.notes ?? '',
+  };
+
+  return {
+    displayText: displayText || 'Thanks! I have the details I need.',
+    lead: normalizedLead,
+  };
+};
+
+const submitLeadCapture = async (lead: LeadCapture) => {
+  if (typeof window === 'undefined') {
+    return 'failed';
+  }
+
+  if (sessionStorage.getItem(LEAD_SUBMITTED_KEY) === '1') {
+    return 'skipped';
+  }
+
+  if (!formspreeEndpoint) {
+    return 'failed';
+  }
+
+  try {
+    const response = await fetch(formspreeEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        _subject: 'EAW Chat Lead — Quote Request',
+        _replyto: lead.email,
+        type: 'chat_lead',
+        name: lead.name,
+        email: lead.email,
+        business: lead.business,
+        service_interest: lead.service_interest,
+        estimated_range: lead.estimated_range,
+        timeline: lead.timeline,
+        notes: lead.notes,
+        pageUrl: window.location.href,
+        userAgent: navigator.userAgent,
+      }),
+    });
+
+    if (!response.ok) {
+      return 'failed';
+    }
+
+    sessionStorage.setItem(LEAD_SUBMITTED_KEY, '1');
+    return 'success';
+  } catch {
+    return 'failed';
+  }
+};
+
+const loadHistory = (): AssistantMessage[] => {
+  if (typeof window === 'undefined') {
+    return [DEFAULT_ASSISTANT_MESSAGE];
+  }
+
+  try {
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      return [DEFAULT_ASSISTANT_MESSAGE];
+    }
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) {
+      return [DEFAULT_ASSISTANT_MESSAGE];
+    }
+    const sanitized = parsed.filter(
+      (message): message is AssistantMessage =>
+        message &&
+        typeof message.content === 'string' &&
+        (message.role === 'user' || message.role === 'assistant'),
+    );
+    return sanitized.length > 0 ? sanitized : [DEFAULT_ASSISTANT_MESSAGE];
+  } catch {
+    return [DEFAULT_ASSISTANT_MESSAGE];
+  }
+};
+
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    { text: "Hi! I'm the Elevated AI Works Assistant. How can I help you today?", isUser: false },
-  ]);
+  const [history, setHistory] = useState<AssistantMessage[]>(() => loadHistory());
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const cannedResponses = [
-    'We specialize in AI-powered product strategy, UX, and brand systems. What are you building?',
-    'Our team can help with UI/UX, web experiences, and AI integrations. Tell me about your timeline.',
-    'We love partnering with growing teams. Want help scoping a project or estimating effort?',
-  ];
+  const assistantUnavailable = !isSupabaseConfigured;
+  const messages: Message[] = history
+    .filter((message) => message.role !== 'system')
+    .map((message) => ({
+      text: message.content,
+      isUser: message.role === 'user',
+    }));
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -29,20 +182,64 @@ export function ChatWidget() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  }, [history]);
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    if (assistantUnavailable) {
+      setErrorMessage('Assistant unavailable right now.');
+      return;
+    }
+
     const userMessage = input.trim();
-    setMessages((prev) => [...prev, { text: userMessage, isUser: true }]);
     setInput('');
     setIsLoading(true);
+    setErrorMessage(null);
 
-    const responseIndex = Math.floor(Math.random() * cannedResponses.length);
-    const assistantResponse = cannedResponses[responseIndex];
+    const nextHistory = [...history, { role: 'user', content: userMessage }];
+    setHistory(nextHistory);
 
-    await new Promise((resolve) => setTimeout(resolve, 650));
-    setMessages((prev) => [...prev, { text: assistantResponse, isUser: false }]);
-    setIsLoading(false);
+    try {
+      const assistantResponse = await sendAssistantMessage([SYSTEM_MESSAGE, ...nextHistory]);
+      const { displayText, lead } = extractLeadCapture(assistantResponse);
+      setHistory((prev) => [...prev, { role: 'assistant', content: displayText }]);
+
+      if (lead) {
+        const leadResult = await submitLeadCapture(lead);
+        if (leadResult === 'success') {
+          setHistory((prev) => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: 'Thanks! Your details are in—our team will follow up shortly.',
+            },
+          ]);
+        } else if (leadResult === 'failed') {
+          setHistory((prev) => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: 'Couldn’t submit right now—please use the Contact page.',
+            },
+          ]);
+        }
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Assistant unavailable right now.';
+      setErrorMessage(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -81,6 +278,22 @@ export function ChatWidget() {
                 Online
               </p>
             </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="text-xs"
+              disabled={isLoading}
+              onClick={() => {
+                setHistory([DEFAULT_ASSISTANT_MESSAGE]);
+                setErrorMessage(null);
+                if (typeof window !== 'undefined') {
+                  sessionStorage.removeItem(STORAGE_KEY);
+                }
+              }}
+            >
+              Clear chat
+            </Button>
           </div>
 
           {/* Messages */}
@@ -113,6 +326,11 @@ export function ChatWidget() {
 
           {/* Input */}
           <div className="p-3 sm:p-4 border-t border-border">
+            {(assistantUnavailable || errorMessage) && (
+              <p className="text-xs text-destructive mb-2">
+                {assistantUnavailable ? 'Assistant unavailable right now.' : errorMessage}
+              </p>
+            )}
             <div className="flex gap-2">
               <input
                 type="text"
@@ -120,7 +338,7 @@ export function ChatWidget() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask about our services..."
-                disabled={isLoading}
+                disabled={isLoading || assistantUnavailable}
                 className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 bg-secondary border border-border rounded-lg sm:rounded-xl text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
               />
               <Button 
@@ -128,7 +346,7 @@ export function ChatWidget() {
                 size="icon" 
                 variant="hero"
                 className="rounded-lg sm:rounded-xl h-9 w-9 sm:h-10 sm:w-10"
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || assistantUnavailable || !input.trim()}
               >
                 <Send size={16} className="sm:w-[18px] sm:h-[18px]" />
               </Button>

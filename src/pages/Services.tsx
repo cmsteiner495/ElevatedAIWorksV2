@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Palette, Globe, FileText, Bot, Search, BarChart3, Wrench, Check, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Layout } from '@/components/layout/Layout';
+import { PageMeta } from '@/components/seo/PageMeta';
 
 const services = [
   {
@@ -9,7 +10,7 @@ const services = [
     title: 'Branding',
     subtitle: 'Logo & Identity Design',
     whoFor: 'For businesses starting out or ready to refresh their look. We create identities that feel professional and uniquely yours.',
-    priceRange: '$500 – $2,000',
+    priceRange: '$25 – $150',
     priceNote: 'Depends on complexity and number of concepts',
     deliverables: [
       'Custom logo design (2-3 concepts)',
@@ -24,7 +25,7 @@ const services = [
     title: 'Websites',
     subtitle: 'Modern, Fast, Mobile-Ready',
     whoFor: 'For businesses that need a real online presence — not just a social page. We build sites that look good and actually help you get customers.',
-    priceRange: '$1,500 – $5,000',
+    priceRange: '$150 – $2,000',
     priceNote: 'Based on page count and features',
     deliverables: [
       'Custom responsive design',
@@ -39,7 +40,7 @@ const services = [
     title: 'Systems & Docs',
     subtitle: 'Workflows That Work',
     whoFor: 'For service providers tired of messy paperwork. We create templates and systems that save time and look professional.',
-    priceRange: '$300 – $1,500',
+    priceRange: '$50 – $500',
     priceNote: 'Varies by scope and customization',
     deliverables: [
       'Custom invoice templates',
@@ -54,7 +55,7 @@ const services = [
     title: 'AI Tools',
     subtitle: 'Practical Automation',
     whoFor: 'For businesses ready to work smarter. We set up AI tools that actually help — without making things feel impersonal.',
-    priceRange: '$500 – $3,000',
+    priceRange: '$300 – $1,000',
     priceNote: 'Depends on integration complexity',
     deliverables: [
       'Custom AI chatbots & assistants',
@@ -69,7 +70,7 @@ const services = [
     title: 'SEO',
     subtitle: 'Get Found Online',
     whoFor: 'For businesses that want more customers from Google. We handle the technical stuff so you can focus on your work.',
-    priceRange: '$300 – $800/month',
+    priceRange: '$25 – $100/month',
     priceNote: 'Ongoing optimization recommended',
     deliverables: [
       'Technical SEO audit & fixes',
@@ -84,7 +85,7 @@ const services = [
     title: 'Analytics',
     subtitle: 'Know Your Numbers',
     whoFor: 'For businesses that want to understand what\'s actually working. We set up tracking that\'s useful, not overwhelming.',
-    priceRange: '$200 – $600',
+    priceRange: '$50 – $500',
     priceNote: 'One-time setup with optional reporting',
     deliverables: [
       'GA4 setup & configuration',
@@ -99,7 +100,7 @@ const services = [
     title: 'Maintenance',
     subtitle: 'Ongoing Care',
     whoFor: 'For businesses that want their site to stay current without worrying about it. We handle updates so you don\'t have to.',
-    priceRange: '$75 – $200/month',
+    priceRange: '$25 – $200/month',
     priceNote: 'Based on update frequency',
     deliverables: [
       'Regular security updates',
@@ -114,6 +115,11 @@ const services = [
 const Services = () => {
   return (
     <Layout>
+      <PageMeta
+        title="Services | Elevated AI Works in Colorado Springs"
+        description="Explore branding, web design, SEO, and AI automation services from Elevated AI Works, supporting Colorado Springs businesses with clear, practical solutions."
+        canonicalPath="/services"
+      />
       {/* Hero */}
       <section className="pt-8 pb-8 sm:pt-12 sm:pb-12 lg:pt-20 lg:pb-16">
         <div className="container">
