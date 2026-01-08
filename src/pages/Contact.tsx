@@ -12,7 +12,7 @@ import { PageMeta } from '@/components/seo/PageMeta';
 const faqs = [
   {
     question: 'How much does a typical project cost?',
-    answer: 'Projects vary based on scope, but we pride ourselves on fair, transparent pricing. A simple brand identity might start around $1,500, while a full website could range from $3,000-$8,000. We always provide detailed quotes upfront.',
+    answer: 'Projects vary based on scope, but we pride ourselves on fair, transparent pricing. A simple brand identity might start around $100, while a full website could range from $1,000-$2,000. We always provide detailed quotes upfront.',
   },
   {
     question: 'How long does a project take?',
