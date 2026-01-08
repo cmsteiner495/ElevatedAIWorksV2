@@ -216,7 +216,7 @@ const Index = () => {
             Beyond the basics
           </h2>
           <p className="text-sm sm:text-base text-muted-foreground text-center mb-8 sm:mb-12 max-w-xl mx-auto px-4">
-            Every project includes the essentials. These add-ons help you get even more value.
+            Every project requires the essentials. These add-ons help you get even more value.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
