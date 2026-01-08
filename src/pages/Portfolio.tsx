@@ -21,52 +21,57 @@ interface PortfolioProject {
 const categories = ['All', 'Branding', 'Website', 'UI/UX', 'Product'];
 const mockProjects: PortfolioProject[] = [
   {
-    id: 'elevate-dental',
-    title: 'Elevate Dental Rebrand',
-    description: 'A refreshed identity and patient-first website experience for a growing dental practice.',
-    problem: 'The clinic needed to stand out in a crowded market while improving online appointment conversions.',
-    solution: 'We delivered a new visual system, refined messaging, and a conversion-focused website redesign.',
-    outcomes: ['32% increase in online bookings', '2x engagement on service pages', 'New brand guidelines adopted'],
-    categories: ['Branding', 'Website'],
-    image_url: 'https://images.unsplash.com/photo-1504805572947-34fad45aed93?w=800&q=80',
+    id: 'true-west-handyman',
+    title: 'True West Handyman',
+    description:
+      'Colorado-themed small business website designed to build trust, showcase services clearly, and drive quote requests.',
+    problem:
+      'The business needed a modern, trustworthy site that felt local and credible—while making it easy for customers to understand services and request help quickly.',
+    solution:
+      'Designed a multi-section homepage, refined service structure and messaging, improved mobile UX, and implemented a streamlined quote/contact flow with SEO-friendly structure.',
+    outcomes: [
+      'Clearer service presentation for customers',
+      'Improved mobile-first browsing experience',
+      'More direct quote-request pathway',
+    ],
+    categories: ['Website', 'Branding'],
+    image_url: '/portfolio/True-West-Handyman.png',
     external_link: null,
     display_order: 1,
   },
   {
-    id: 'pathway-saas',
-    title: 'Pathway SaaS Dashboard',
-    description: 'A user-centered product design overhaul for a B2B analytics platform.',
-    problem: 'Users struggled to find key insights quickly, leading to churn concerns.',
-    solution: 'We mapped core workflows and introduced a modular dashboard with clearer prioritization.',
-    outcomes: ['25% faster task completion', '15% reduction in support tickets', 'Improved NPS scores'],
-    categories: ['UI/UX', 'Product'],
-    image_url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&q=80',
-    external_link: null,
+    id: 'paws-whiskers-care',
+    title: 'Paws & Whiskers Care',
+    description:
+      'Friendly, approachable pet care site built for quick service clarity and easy contact/booking from any device.',
+    problem:
+      'The brand needed a clean, welcoming site that quickly answers “what do you offer?” and makes it easy to reach out without friction.',
+    solution:
+      'Built a simple, mobile-first experience with clear service sections, polished layout, and a contact-focused conversion path.',
+    outcomes: [
+      'Cleaner service clarity and navigation',
+      'More confident first impression for new clients',
+      'Faster path to inquiry/contact',
+    ],
+    categories: ['Website', 'Branding'],
+    image_url: '/portfolio/paws-whiskers-care.png',
+    external_link:'https://https://pawsandwhiskerscare.netlify.app/',
     display_order: 2,
   },
   {
-    id: 'northwind-commerce',
-    title: 'Northwind Commerce',
-    description: 'A modern storefront experience that highlights craftsmanship and story-driven visuals.',
-    problem: 'The brand needed a premium online presence to support new product launches.',
-    solution: 'We built a storytelling-focused site with lightweight animations and curated product layouts.',
-    outcomes: ['18% lift in average order value', '40% more product page views', 'Expanded email list'],
+    id: 'rose-noir',
+    title: 'Rosé Noir',
+    description:
+      'Premium wedding brand experience with cinematic visuals and refined editorial-style layout. (Coming Soon)',
+    problem:
+      'The brand needed to communicate a premium vibe without ultra-luxury pricing—building trust and emotion fast.',
+    solution:
+      'Established brand direction, cinematic hero concept, and premium layout/messaging framework designed for high-intent couples.',
+    outcomes: ['Coming soon'],
     categories: ['Website', 'Branding'],
-    image_url: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?w=800&q=80',
+    image_url: '/portfolio/rose-noir.png',
     external_link: null,
     display_order: 3,
-  },
-  {
-    id: 'lumen-mobile',
-    title: 'Lumen Mobile App',
-    description: 'A mobile experience built to help customers track wellness milestones effortlessly.',
-    problem: 'The app needed clearer onboarding and a more motivating progress view.',
-    solution: 'We redesigned onboarding flows, added quick wins, and highlighted progress trends.',
-    outcomes: ['30% higher week-one retention', '50% more daily check-ins', 'Improved app store ratings'],
-    categories: ['UI/UX', 'Product'],
-    image_url: 'https://images.unsplash.com/photo-1517433456452-f9633a875f6f?w=800&q=80',
-    external_link: null,
-    display_order: 4,
   },
 ];
 
