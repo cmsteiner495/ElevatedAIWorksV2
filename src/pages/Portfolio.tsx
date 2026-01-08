@@ -36,7 +36,7 @@ const mockProjects: PortfolioProject[] = [
     ],
     categories: ['Website', 'Branding'],
     image_url: '/portfolio/True-West-Handyman.png',
-    external_link: null,
+    external_link: 'https://truewesthandyman.com',
     display_order: 1,
   },
   {
@@ -55,7 +55,7 @@ const mockProjects: PortfolioProject[] = [
     ],
     categories: ['Website', 'Branding'],
     image_url: '/portfolio/paws-whiskers-care.png',
-    external_link:'https://https://pawsandwhiskerscare.netlify.app/',
+    external_link:'https://pawsandwhiskerscare.netlify.app/',
     display_order: 2,
   },
   {
