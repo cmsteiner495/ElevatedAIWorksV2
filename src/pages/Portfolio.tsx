@@ -151,19 +151,26 @@ const Portfolio = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
               {filteredProjects.map((project) => (
-                <button
+                <div
                   key={project.id}
                   onClick={() => setSelectedProject(project)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      setSelectedProject(project);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                   className="group text-left bg-card/60 backdrop-blur-sm border border-border/30 rounded-xl sm:rounded-2xl overflow-hidden hover:border-primary/40 transition-all duration-300"
                 >
-                  <div className="aspect-[4/3] overflow-hidden bg-secondary/30">
+                  <div className="portfolio-card-image aspect-video overflow-hidden bg-secondary/30">
                     <img
                       src={project.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80'}
                       alt={project.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
-                  <div className="p-4 sm:p-6">
+                  <div className="flex h-full flex-col p-4 sm:p-6">
                     <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                       {project.categories.map((cat) => (
                         <Badge key={cat} variant="secondary" className="text-xs bg-secondary/50">
@@ -177,8 +184,19 @@ const Portfolio = () => {
                     <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                       {project.description}
                     </p>
+                    {project.external_link && (
+                      <a
+                        href={project.external_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                        className="mt-4 inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:text-sm"
+                      >
+                        View Project
+                      </a>
+                    )}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
